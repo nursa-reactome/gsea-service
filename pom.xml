@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>org.reactome.gsea</groupId>
+	<artifactId>gsea-service</artifactId>
+
+	<packaging>war</packaging>
+	<version>1.0.1</version>
+	<name>gsea-service</name>
+
+	<description>GSEA REST Service</description>
+	<url>https://github.com/nursa-reactome/gsea</url>
+	<organization>
+		<name>Oregon Health and Science University</name>
+		<url>http://www.ohsu.edu/</url>
+	</organization>
+
+	<developers>
+		<developer>
+			<id>loneyf</id>
+			<name>Fred Loney</name>
+			<email>loneyf@ohsu.edu</email>
+			<organization>http://www.ohsu.edu/</organization>
+		</developer>
+		<developer>
+			<id>guw@ohsu.edu</id>
+			<name>Guanming Wu</name>
+			<email>guw@ohsu.edu</email>
+			<organization>http://www.ohsu.edu/</organization>
+		</developer>
+	</developers>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <reactome.gsea.model>1.0.1-SNAPSHOT</reactome.gsea.model>
+		<commons.collections.version>4.1</commons.collections.version>
+		<jsp.version>2.1</jsp.version>
+		<swagger.version>2.4.0</swagger.version>
+		<activation.version>1.1.1</activation.version>
+
+		<jdk.version>1.8</jdk.version>
+		<jackrabbit.version>2.10</jackrabbit.version>
+		<maven.javadoc.version>2.10.3</maven.javadoc.version>
+		<maven.info.report.version>2.8.1</maven.info.report.version>
+		<pmd.version>3.6</pmd.version>
+	</properties>
+
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>2.0.0.M3</version>
+	</parent>
+
+	<dependencies>
+        <!-- Shared client/server GSEA data model -->
+        <dependency>
+            <groupId>org.reactome.gsea</groupId>
+            <artifactId>gsea-model</artifactId>
+            <version>${reactome.gsea.model}</version>
+        </dependency>
+		<!--Spring -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>org.springframework.boot</groupId>
+					<artifactId>spring-boot-starter-logging</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-devtools</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-webmvc</artifactId>
+		</dependency>
+		<!--Jsp Servlets -->
+		<dependency>
+			<groupId>javax.servlet</groupId>
+			<artifactId>javax.servlet-api</artifactId>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>javax.servlet.jsp</groupId>
+			<artifactId>jsp-api</artifactId>
+			<version>${jsp.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>javax.servlet</groupId>
+			<artifactId>jstl</artifactId>
+		</dependency>
+		<!-- Jackson JSON Processor -->
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
+		</dependency>
+		<!-- Swagger for API Documentation -->
+		<dependency>
+			<groupId>io.springfox</groupId>
+			<artifactId>springfox-swagger2</artifactId>
+			<version>${swagger.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.springfox</groupId>
+			<artifactId>springfox-swagger-ui</artifactId>
+			<version>${swagger.version}</version>
+		</dependency>
+		<!--Util -->
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-collections4</artifactId>
+			<version>${commons.collections.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>fluent-hc</artifactId>
+			<version>4.5.3</version>
+		</dependency>
+		<!-- Testing -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.spockframework</groupId>
+            <artifactId>spock-core</artifactId>
+            <version>1.1-groovy-2.4</version>
+            <scope>test</scope>
+        </dependency>
+       <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.codehaus.groovy.modules.http-builder</groupId>
+            <artifactId>http-builder</artifactId>
+            <version>0.7.1</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- GSEA -->
+        <!-- Note: gsea.jar includes lots of dependent libraries, e.g. Apache Commons.
+             This causes conflicts with dependencies which rely on more recent versions
+             of these libraries. For example, if the gsea dependency is first in the
+             class path, then running this GseaService raises the following error:
+               java.lang.NoSuchMethodError: org.apache.commons.logging.Log.isTraceEnabled()Z
+               at org.springframework.core.env.PropertySourcesPropertyResolver.getProperty(PropertySourcesPropertyResolver.java:78)
+             Thus, this gsea dependency must be placed lost in the path.
+         -->
+        <dependency>
+            <groupId>edu.mit.broad</groupId>
+            <artifactId>gsea</artifactId>
+            <version>3.0</version>
+        </dependency>
+	</dependencies>
+
+	<build>
+		<finalName>GseaService</finalName>
+		<testSourceDirectory>${project.basedir}/specs</testSourceDirectory>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+				<filtering>true</filtering>
+			</resource>
+		</resources>
+		<plugins>
+			<plugin>
+				<!-- The gmavenplus plugin is used to compile Groovy code. To learn more 
+					about this plugin, visit https://github.com/groovy/GMavenPlus/wiki -->
+				<groupId>org.codehaus.gmavenplus</groupId>
+				<artifactId>gmavenplus-plugin</artifactId>
+				<version>1.5</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>compile</goal>
+							<goal>testCompile</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+                <!--
+                 Override the default **/*Test.java with **/*Spec.java.
+                 Yes, that is .java rather than .groovy per examples
+                 such as spockframework/spock-example. .groovy won't
+                 find the .groovy test files, but .java will.
+                 -->
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<useFile>false</useFile>
+					<includes>
+						<include>**/*Spec.java</include>
+					</includes>
+				</configuration>
+			</plugin>
+		</plugins>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.springframework.boot</groupId>
+					<artifactId>spring-boot-maven-plugin</artifactId>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+	</build>
+
+	<!--This configuration is needed so that javadoc is included in maven site -->
+	<reporting>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-javadoc-plugin</artifactId>
+				<version>${maven.javadoc.version}</version>
+				<configuration>
+					<quiet>true</quiet>
+				</configuration>
+				<reportSets>
+					<reportSet>
+						<reports>
+							<report>javadoc</report>
+						</reports>
+					</reportSet>
+				</reportSets>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-project-info-reports-plugin</artifactId>
+				<version>${maven.info.report.version}</version>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-pmd-plugin</artifactId>
+				<version>${pmd.version}</version>
+				<configuration>
+					<skipEmptyReport>false</skipEmptyReport>
+					<linkXRef>false</linkXRef>
+					<sourceEncoding>utf-8</sourceEncoding>
+					<targetJdk>${jdk.version}</targetJdk>
+				</configuration>
+			</plugin>
+		</plugins>
+	</reporting>
+
+	<repositories>
+		<repository>
+			<id>spring-milestones</id>
+			<url>http://repo.spring.io/milestone</url>
+		</repository>
+		<!-- EBI repo -->
+		<repository>
+			<id>nexus-ebi-repo</id>
+			<name>The EBI internal repository</name>
+			<url>http://www.ebi.ac.uk/Tools/maven/repos/content/groups/ebi-repo/</url>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</repository>
+		<!-- EBI SNAPSHOT repo -->
+		<repository>
+			<id>nexus-ebi-snapshot-repo</id>
+			<name>The EBI internal snapshot repository</name>
+			<url>http://www.ebi.ac.uk/Tools/maven/repos/content/groups/ebi-snapshots/</url>
+			<releases>
+				<enabled>false</enabled>
+			</releases>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+		</repository>
+	</repositories>
+
+	<pluginRepositories>
+		<pluginRepository>
+			<id>spring-milestones</id>
+			<url>http://repo.spring.io/milestone</url>
+		</pluginRepository>
+		<pluginRepository>
+			<id>bintray</id>
+			<name>Groovy Bintray</name>
+			<url>https://dl.bintray.com/groovy/maven</url>
+			<releases>
+				<updatePolicy>never</updatePolicy>
+			</releases>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</pluginRepository>
+	</pluginRepositories>
+
+	<distributionManagement>
+		<!-- EBI repo -->
+		<repository>
+			<id>pst-release</id>
+			<name>EBI Nexus Repository</name>
+			<url>http://www.ebi.ac.uk/Tools/maven/repos/content/repositories/pst-release</url>
+		</repository>
+		<!-- EBI SNAPSHOT repo -->
+		<snapshotRepository>
+			<uniqueVersion>false</uniqueVersion>
+			<id>pst-snapshots</id>
+			<name>EBI Nexus Snapshots Repository</name>
+			<url>http://www.ebi.ac.uk/Tools/maven/repos/content/repositories/pst-snapshots</url>
+		</snapshotRepository>
+	</distributionManagement>
+</project>
