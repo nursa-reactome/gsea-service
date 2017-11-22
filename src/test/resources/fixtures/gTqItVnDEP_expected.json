@@ -1,9 +1,0 @@
-[
-    {"pathway": "CYTOKINE SIGNALING IN IMMUNE SYSTEM", "score": 0.84429544, "regulationType": "UP"},
-    {"pathway": "IMMUNE SYSTEM", "score": 0.81702095, "regulationType": "UP"},
-    {"pathway": "INNATE IMMUNE SYSTEM", "score": 0.3725799, "regulationType": "UP"},
-    {"pathway": "INTERFERON SIGNALING", "score": 0.8661911, "regulationType": "UP"},
-    {"pathway": "INTERFERON ALPHA/BETA SIGNALING", "score": 0.87766594, "regulationType": "UP"},
-    {"pathway": "METABOLISM", "score": 0.15260126, "regulationType": "UP"},
-    {"pathway": "SIGNAL TRANSDUCTION", "score": 0.2226403, "regulationType": "UP"}
-]

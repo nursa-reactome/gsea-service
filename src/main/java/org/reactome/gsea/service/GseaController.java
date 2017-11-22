@@ -5,16 +5,20 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
-
+import java.util.function.Consumer;
 import org.apache.commons.collections4.IteratorUtils;
 import org.apache.commons.collections4.Transformer;
 import org.apache.commons.collections4.iterators.TransformIterator;
+import org.reactome.gsea.config.PreRanked;
 import org.reactome.gsea.model.AnalysisResult;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -53,7 +57,10 @@ import xtools.api.param.ParamFactory;
 @RestController
 public class GseaController {
 
-    private static final String GMT_PATH = "/usr/local/reactomes/Reactome/production/GKB/scripts/release/WebELVTool/ReactomePathways.gmt";
+    // The Reactome gene matrix file location is determined by the
+    // Reactome release process.
+    private static final String GMT_PATH =
+            "/usr/local/reactomes/Reactome/production/GKB/scripts/release/WebELVTool/ReactomePathways.gmt";
 
     /**
      * Runs a GSEA analysis on a preranked list.
@@ -64,28 +71,14 @@ public class GseaController {
      * @throws URISyntaxException
      * @throws IOException
      */
-    @RequestMapping(value = "/analyse", method = RequestMethod.POST)
+    @RequestMapping(value="/analyse", method=RequestMethod.POST)
     public @ResponseBody List<AnalysisResult> analyse(
-           @RequestParam(value="nperms", required=false) Integer nperms,
+            @RequestParam(value="nperms", required=false) Integer nperms,
+            @RequestParam(value="dataSetSizeMin", required=false) Integer dataSetSizeMin,
+            @RequestParam(value="dataSetSizeMax", required=false) Integer dataSetSizeMax,
             @RequestBody List<List<String>> payload
     )
             throws URISyntaxException, IOException {
-
-        Transformer<EnrichmentResult, AnalysisResult> erXfm =
-                new Transformer<EnrichmentResult, AnalysisResult>() {
-            @Override
-            public AnalysisResult transform(EnrichmentResult er) {
-                AnalysisResult result = new AnalysisResult();
-                result.setPathway(er.getGeneSetName());
-                EnrichmentScore es = er.getScore();
-                result.setScore(es.getES());
-                result.setNormalizedScore(es.getNES());
-                result.setPvalue(es.getNP());
-                result.setFdr(es.getFDR());
-                return result;
-            }
-        };
-
         // This method and the methods it calls are adapted from the GSEA
         // Preranked internal implementation.
         // There is no clean and simple GSEA public API for performing the
@@ -96,24 +89,63 @@ public class GseaController {
         // different places in the GSEA code to replicate the GSEA file parsing
         // and analysis execution without file parsing and report production.
         RankedList rankedList = getRankedList(payload);
-        GeneSet[] geneSets = getGeneSets(rankedList);
+        GeneSet[] geneSets = getGeneSets(rankedList, dataSetSizeMin, dataSetSizeMax);
         EnrichmentResult[] erArray = analyse(rankedList, geneSets, nperms);
         List<EnrichmentResult> ers = Arrays.asList(erArray);
+        // Work around the following bug:
+        // * GSEA geneset parser converts the pathway names to upper case.
+        // The work-around is to reread the gmt file into an {upper: lower}
+        // map and replace the parsed GSEA gene set names.
+        Set<String> erNames = new HashSet<String>();
+        ers.stream().forEach(er -> erNames.add(er.getGeneSetName()));
+        // The upper: lower map.
+        final Map<String, String> utol = new HashMap<String, String>(erArray.length);
+        // The lower: stable id map.
+        final Map<String, String> stableIdMap = new HashMap<String, String>(erArray.length);
+        ers.stream().forEach(er -> erNames.add(er.getGeneSetName()));
+        Consumer<String> mapper = new Consumer<String>() {
+            @Override
+            public void accept(String line) {
+                String[] fields = line.split("\t");
+                String lc = fields[0];
+                String uc = lc.toUpperCase();
+                if (erNames.contains(uc)) {
+                    utol.put(uc, lc);
+                    String stId = fields[1];
+                    stableIdMap.put(lc, stId);
+                }
+            }
+        };
+        try {
+            Files.lines(Paths.get(GMT_PATH)).forEach(mapper);
+        } catch (IOException e) {
+            throw new GseaException("Cannot read the gene matrix file " + GMT_PATH, e);
+        }
+ 
+        Transformer<EnrichmentResult, AnalysisResult> erXfm =
+                new Transformer<EnrichmentResult, AnalysisResult>() {
+            @Override
+            public AnalysisResult transform(EnrichmentResult er) {
+                AnalysisResult result = new AnalysisResult();
+                String ucName = er.getGeneSetName();
+                AnalysisResult.Pathway pathway = new AnalysisResult.Pathway();
+                String lcName = utol.get(ucName);
+                pathway.setName(lcName);
+                pathway.setStId(stableIdMap.get(lcName));
+                result.setPathway(pathway);
+                EnrichmentScore es = er.getScore();
+                result.setHitCount(es.getNumHits());
+                result.setScore(es.getES());
+                result.setNormalizedScore(es.getNES());
+                result.setPvalue(es.getNP());
+                result.setFdr(es.getFDR());
+                return result;
+            }
+        };
         Iterator<AnalysisResult> erIter =
                 new TransformIterator<EnrichmentResult, AnalysisResult>(ers.iterator(), erXfm);
         List<AnalysisResult> result = IteratorUtils.toList(erIter);
-        List<String> resn =
-                result.stream()
-                      .map(AnalysisResult::getPathway)
-                      .collect(Collectors.toList());
-        System.out.println(">> n " + resn);
-        List<Float> resv =
-                result.stream()
-                      .map(AnalysisResult::getScore)
-                      .map(Float::new)
-                      .collect(Collectors.toList());
-        System.out.println(">> v " + resv);
-
+ 
         return result;
     }
 
@@ -183,7 +215,8 @@ public class GseaController {
                 "REST", names, values, SortMode.REAL, Order.DESCENDING);
     }
 
-    private GeneSet[] getGeneSets(RankedList rankedList) throws FileNotFoundException {
+    private GeneSet[] getGeneSets(RankedList rankedList, Integer dataSetSizeMinOpt, Integer dataSetSizeMaxOpt)
+            throws FileNotFoundException {
         GmtParser gmtParser = new GmtParser();
         FileInputStream gmtis = new FileInputStream(GMT_PATH);
         // The GSEA .gmt file parser returns a singleton array
@@ -197,9 +230,10 @@ public class GseaController {
         GeneSetMatrix gsm = gsms.get(0);
         // The parsed gene sets.
         GeneSet[] gsmGeneSets = gsm.getGeneSets();
-        // Default parameters lifted from AbstractGseaTool. 
-        IntegerParam fGeneSetMinSizeParam = ParamFactory.createGeneSetMinSizeParam(15, false);
-        IntegerParam fGeneSetMaxSizeParam = ParamFactory.createGeneSetMaxSizeParam(500, false);
+        int dataSetSizeMin = dataSetSizeMinOpt == null ? PreRanked.DEF_MIN_DATASET_SIZE : dataSetSizeMinOpt.intValue();
+        int dataSetSizeMax = dataSetSizeMaxOpt == null ? PreRanked.DEF_MAX_DATASET_SIZE : dataSetSizeMaxOpt.intValue();
+        IntegerParam fGeneSetMinSizeParam = ParamFactory.createGeneSetMinSizeParam(dataSetSizeMin, false);
+        IntegerParam fGeneSetMaxSizeParam = ParamFactory.createGeneSetMaxSizeParam(dataSetSizeMax, false);
         // GSEA routine to filter the gene sets based on the min/max parameters.
         GeneSet[] geneSets;
         try {

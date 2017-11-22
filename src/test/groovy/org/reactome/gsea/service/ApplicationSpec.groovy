@@ -38,13 +38,24 @@ class ApplicationSpec extends Specification {
     def "performs analysis on a small ranked list"() {
         given:
             def geneSet = "gTqItVnDEP"
+            def expected = "gTqItVnDEP_no_opt"
         when:
             def response = analyse(geneSet)
         then:
-            validate(geneSet, response)
+            validate(geneSet, response, expected)
+     }
+
+    def "applies the min dataset size option"() {
+        given:
+            def geneSet = "gTqItVnDEP"
+            def expected = "gTqItVnDEP_min_opt"
+        when:
+            def response = analyse(geneSet, [dataSetSizeMin: 40])
+        then:
+            validate(geneSet, response, expected)
      }
      
-     def analyse(basename) {
+     def analyse(basename, opts=[:]) {
          // Read the .rnk file.
          def input = this.getClass().getResource("/fixtures/${basename}.rnk")
          // Filter for the data lines.
@@ -54,21 +65,26 @@ class ApplicationSpec extends Specification {
              def match = line =~ REGEX
              [match[0][1], match[0][2]]
          }
-         // The POST JSON body.
+        // The POST JSON body.
          def json = groovy.json.JsonOutput.toJson(records)
+         // The REST call base arguments.
+         def args = []
+         // The REST call query parameters.
          // Perform the GSEA analysis.
          return client.post(
-             path:"analyse", body: json,
+             path: "analyse",
+             query: opts,
+             body: json,
              contentType: "application/json",
              requestContentType: "application/json"
          )
      }
      
-     def validate(basename, response) {
+     def validate(basename, response, fixture) {
          // The expected input URL.
-         def input = this.getClass().getResource("/fixtures/${basename}_expected.json")
+         def url = this.getClass().getResource("/fixtures/${fixture}.json")
          // The expected data as a set of Map objects.
-         def expected = new groovy.json.JsonSlurper().parseText(input.text) as Set
+         def expected = new groovy.json.JsonSlurper().parseText(url.text) as Set
          // Check the response status code.
          assert response.status == 200
          // The analysis result as a set of Map objects.

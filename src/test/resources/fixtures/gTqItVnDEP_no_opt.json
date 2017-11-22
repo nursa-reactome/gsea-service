@@ -1,0 +1,9 @@
+[
+    {"pathway": "Cytokine Signaling in Immune system", "score": 0.84429544, "regulationType": "UP"},
+    {"pathway": "Immune System", "score": 0.81702095, "regulationType": "UP"},
+    {"pathway": "Innate Immune System", "score": 0.3725799, "regulationType": "UP"},
+    {"pathway": "Interferon Signaling", "score": 0.8661911, "regulationType": "UP"},
+    {"pathway": "Interferon alpha/beta signaling", "score": 0.87766594, "regulationType": "UP"},
+    {"pathway": "Metabolism", "score": 0.15260126, "regulationType": "UP"},
+    {"pathway": "Signal Transduction", "score": 0.2226403, "regulationType": "UP"}
+]
