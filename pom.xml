@@ -24,7 +24,7 @@
 			<organization>http://www.ohsu.edu/</organization>
 		</developer>
 		<developer>
-			<id>guw@ohsu.edu</id>
+			<id>guw</id>
 			<name>Guanming Wu</name>
 			<email>guw@ohsu.edu</email>
 			<organization>http://www.ohsu.edu/</organization>
@@ -34,7 +34,7 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <reactome.gsea.model>1.0.1-SNAPSHOT</reactome.gsea.model>
+        <reactome.gsea.model>1.0.1</reactome.gsea.model>
 		<commons.collections.version>4.1</commons.collections.version>
 		<jsp.version>2.1</jsp.version>
 		<swagger.version>2.4.0</swagger.version>
