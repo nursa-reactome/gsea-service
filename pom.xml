@@ -162,7 +162,7 @@
 	</dependencies>
 
 	<build>
-		<finalName>GseaService</finalName>
+		<finalName>Gsea</finalName>
 		<testSourceDirectory>${project.basedir}/specs</testSourceDirectory>
 		<resources>
 			<resource>
