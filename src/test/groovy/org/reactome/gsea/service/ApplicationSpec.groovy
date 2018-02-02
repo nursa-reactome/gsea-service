@@ -1,6 +1,9 @@
 package org.reactome.gsea.service
 
 import org.junit.Test
+import org.junit.experimental.categories.Category
+import org.reactome.gsea.service.IntegrationTest
+
 import java.util.regex.Pattern
 import spock.lang.Specification
 import spock.lang.Shared
@@ -21,6 +24,7 @@ import groovy.json.JsonSlurper
 // e.g. ContextConfiguration class version conflicts. The work-around
 // is to avoid annotation magic and run this as a straight script
 // with a test gsea-server already listening on port 8282.
+@Category(IntegrationTest.class)
 class ApplicationSpec extends Specification {
 
     final FIXTURES = "src/test/resources/fixtures"
