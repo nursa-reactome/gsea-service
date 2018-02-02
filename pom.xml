@@ -41,11 +41,27 @@
         <activation.version>1.1.1</activation.version>
 
         <jdk.version>1.8</jdk.version>
-        <jackrabbit.version>2.10</jackrabbit.version>
         <maven.javadoc.version>2.10.3</maven.javadoc.version>
         <maven.info.report.version>2.8.1</maven.info.report.version>
         <pmd.version>3.6</pmd.version>
+
+        <!--  The default dev mode port. -->
+        <server.port>8282</server.port>
+
+        <skip.integration.tests>true</skip.integration.tests>
     </properties>
+
+    <profiles>
+          <!--  Integration tests require a running gsea service
+            and are run only if the integration-test profile is
+            active. -->
+        <profile>
+            <id>integration-test</id>
+            <properties>
+                <skip.integration.tests>false</skip.integration.tests>
+            </properties>
+        </profile>
+    </profiles>
 
     <parent>
         <groupId>org.springframework.boot</groupId>
@@ -70,6 +86,11 @@
                     <artifactId>spring-boot-starter-logging</artifactId>
                 </exclusion>
             </exclusions>
+         </dependency>
+         <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-tomcat</artifactId>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -80,6 +101,34 @@
             <groupId>org.springframework</groupId>
             <artifactId>spring-webmvc</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>jcl-over-slf4j</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+            <version>1.2.14</version>
+        </dependency>        
+        
         <!--Jsp Servlets -->
         <dependency>
             <groupId>javax.servlet</groupId>
@@ -125,18 +174,9 @@
         </dependency>
         <!-- Testing -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.spockframework</groupId>
             <artifactId>spock-core</artifactId>
             <version>1.1-groovy-2.4</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -153,6 +193,17 @@
             java.lang.NoSuchMethodError: org.apache.commons.logging.Log.isTraceEnabled()Z 
             at org.springframework.core.env.PropertySourcesPropertyResolver.getProperty(PropertySourcesPropertyResolver.java:78) 
             Thus, this gsea dependency must be placed lost in the path. -->
+        <!-- Update: classpath order is indeterminate on the Linux deployment.
+            The work-around is to remove the conflicting logging jars from the
+            gsea-desktop build. -->
+        <!--  Note: gsea-desktop is not a Maven project. Therefore, the gsea
+            jar file must be generated from the gsea-desktop fork, then
+            installed as a Maven artifact as follows:
+            
+              mvn install:install-file -Dfile=/path/to/gsea-3.0.jar \
+                  -DgroupId=edu.mit.broad -DartifactId=gsea \
+                  -Dversion=3.0 -Dpackaging=jar
+            -->
         <dependency>
             <groupId>edu.mit.broad</groupId>
             <artifactId>gsea</artifactId>
@@ -162,7 +213,7 @@
 
     <build>
         <finalName>Gsea</finalName>
-        <testSourceDirectory>${project.basedir}/specs</testSourceDirectory>
+        <testSourceDirectory>${project.basedir}/src/test/groovy</testSourceDirectory>
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
@@ -170,6 +221,17 @@
             </resource>
         </resources>
         <plugins>
+            <!-- The application.properties format is @<prop>@. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <configuration>
+                    <delimiters>
+                        <delimiter>@</delimiter>
+                    </delimiters>
+                    <useDefaultDelimiters>false</useDefaultDelimiters>
+                </configuration>
+            </plugin>
             <plugin>
                 <!-- The gmavenplus plugin is used to compile Groovy code. 
                     To learn more about this plugin, visit https://github.com/groovy/GMavenPlus/wiki -->
@@ -179,7 +241,7 @@
                 <executions>
                     <execution>
                         <goals>
-                            <goal>compile</goal>
+                            <goal>addTestSources</goal>
                             <goal>testCompile</goal>
                         </goals>
                     </execution>
@@ -191,11 +253,52 @@
                     .groovy won't find the .groovy test files, but .java will. -->
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <groups>org.reactome.gsea.service.UnitTest</groups>
                     <useFile>false</useFile>
                     <includes>
                         <include>**/*Spec.java</include>
                     </includes>
                 </configuration>
+            </plugin>
+            <!-- Java test source files. -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>add-test-source</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>add-test-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>src/test/java</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Integration tests. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>integration-tests</id>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                        <configuration>
+                            <groups>org.reactome.gsea.service.IntegrationTest</groups>
+                            <includes>
+                                <include>**/*Spec.java</include>
+                            </includes>
+                            <skipTests>${skip.integration.tests}</skipTests>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
         <pluginManagement>
@@ -203,6 +306,9 @@
                 <plugin>
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>
+                    <configuration>
+                        <addResources>false</addResources>
+                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>
