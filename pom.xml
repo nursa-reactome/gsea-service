@@ -206,7 +206,7 @@
             -->
         <dependency>
             <groupId>edu.mit.broad</groupId>
-            <artifactId>gsea</artifactId>
+            <artifactId>gsea-reactome</artifactId>
             <version>3.0</version>
         </dependency>
     </dependencies>
