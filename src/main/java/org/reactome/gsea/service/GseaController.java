@@ -19,7 +19,7 @@ import org.apache.commons.collections4.IteratorUtils;
 import org.apache.commons.collections4.Transformer;
 import org.apache.commons.collections4.iterators.TransformIterator;
 import org.reactome.gsea.config.PreRanked;
-import org.reactome.gsea.model.AnalysisResult;
+import org.reactome.gsea.model.GseaAnalysisResult;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -72,7 +72,7 @@ public class GseaController {
      * @throws IOException
      */
     @RequestMapping(value="/analyse", method=RequestMethod.POST)
-    public @ResponseBody List<AnalysisResult> analyse(
+    public @ResponseBody List<GseaAnalysisResult> analyse(
             @RequestParam(value="nperms", required=false) Integer nperms,
             @RequestParam(value="dataSetSizeMin", required=false) Integer dataSetSizeMin,
             @RequestParam(value="dataSetSizeMax", required=false) Integer dataSetSizeMax,
@@ -122,13 +122,13 @@ public class GseaController {
             throw new GseaException("Cannot read the gene matrix file " + GMT_PATH, e);
         }
  
-        Transformer<EnrichmentResult, AnalysisResult> erXfm =
-                new Transformer<EnrichmentResult, AnalysisResult>() {
+        Transformer<EnrichmentResult, GseaAnalysisResult> erXfm =
+                new Transformer<EnrichmentResult, GseaAnalysisResult>() {
             @Override
-            public AnalysisResult transform(EnrichmentResult er) {
-                AnalysisResult result = new AnalysisResult();
+            public GseaAnalysisResult transform(EnrichmentResult er) {
+                GseaAnalysisResult result = new GseaAnalysisResult();
                 String ucName = er.getGeneSetName();
-                AnalysisResult.Pathway pathway = new AnalysisResult.Pathway();
+                GseaAnalysisResult.Pathway pathway = new GseaAnalysisResult.Pathway();
                 String lcName = utol.get(ucName);
                 pathway.setName(lcName);
                 pathway.setStId(stableIdMap.get(lcName));
@@ -142,9 +142,9 @@ public class GseaController {
                 return result;
             }
         };
-        Iterator<AnalysisResult> erIter =
-                new TransformIterator<EnrichmentResult, AnalysisResult>(ers.iterator(), erXfm);
-        List<AnalysisResult> result = IteratorUtils.toList(erIter);
+        Iterator<GseaAnalysisResult> erIter =
+                new TransformIterator<EnrichmentResult, GseaAnalysisResult>(ers.iterator(), erXfm);
+        List<GseaAnalysisResult> result = IteratorUtils.toList(erIter);
  
         return result;
     }
