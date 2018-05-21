@@ -16,8 +16,9 @@ import groovy.json.JsonSlurper
  * The GSEA analysis test.
  * 
  * Note: the pre-condition for this test is that a test gsea-server
- * is listening on port 8282. Consequently, the gsea-server module
- * must be built in Maven with the skipTests flag set.
+ * is listening on port 8282.
+ * Consequently, the gsea-server module must be built in Maven with
+ * the skipTests flag set.
  */
 // Note: the thick tangle of "convenience" Java Spring Boot testing
 // annotations, e.g. @ContextConfiguration, leads to obscure errors,
