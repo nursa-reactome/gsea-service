@@ -247,6 +247,7 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- Unit tests. -->
             <plugin>
                 <!-- Override the default **/*Test.java with **/*Spec.java. 
                     Yes, that is .java rather than .groovy per examples such as spockframework/spock-example. 
