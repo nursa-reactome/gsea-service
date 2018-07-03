@@ -1,12 +1,18 @@
 package org.reactome.gsea.service;
 
+import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -15,6 +21,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import org.apache.commons.collections4.IteratorUtils;
 import org.apache.commons.collections4.Transformer;
 import org.apache.commons.collections4.iterators.TransformIterator;
@@ -57,6 +66,7 @@ import xtools.api.param.ParamFactory;
 @RestController
 public class GseaController {
 
+    private static final String GMT_RESOURCE = "/resource/ReactomePathways.gmt";
     // The Reactome gene matrix file location is determined by the
     // Reactome release process.
     private static final String GMT_PATH =
@@ -65,13 +75,14 @@ public class GseaController {
     /**
      * Runs a GSEA analysis on a preranked list.
      * 
-     * @param rankedList the tab-separated {gene symbol, rank value} records
+     * @param payload the {gene symbol, rank value} JSON records
      *  request body
      * @return the GSEA execution result response body
      * @throws URISyntaxException
      * @throws IOException
      */
-    @RequestMapping(value="/analyse", method=RequestMethod.POST)
+    @RequestMapping(value="/analyse", method=RequestMethod.POST,
+            consumes = "application/json")
     public @ResponseBody List<GseaAnalysisResult> analyse(
             @RequestParam(value="nperms", required=false) Integer nperms,
             @RequestParam(value="dataSetSizeMin", required=false) Integer dataSetSizeMin,
@@ -89,6 +100,44 @@ public class GseaController {
         // different places in the GSEA code to replicate the GSEA file parsing
         // and analysis execution without file parsing and report production.
         RankedList rankedList = getRankedList(payload);
+        return analyseRanked(nperms, dataSetSizeMin, dataSetSizeMax, rankedList);
+    }
+
+    /**
+     * Runs a GSEA analysis on a preranked list.
+     * 
+     * @param payload the {gene symbol, rank value} JSON records
+     *  request body
+     * @return the GSEA execution result response body
+     * @throws URISyntaxException
+     * @throws IOException
+     */
+    @RequestMapping(value="/analyse", method=RequestMethod.POST,
+            consumes = "text/plain")
+    public @ResponseBody List<GseaAnalysisResult> analyseText(
+            @RequestParam(value="nperms", required=false) Integer nperms,
+            @RequestParam(value="dataSetSizeMin", required=false) Integer dataSetSizeMin,
+            @RequestParam(value="dataSetSizeMax", required=false) Integer dataSetSizeMax,
+            @RequestBody String payload
+    )
+            throws URISyntaxException, IOException {
+        // This method and the methods it calls are adapted from the GSEA
+        // Preranked internal implementation.
+        // There is no clean and simple GSEA public API for performing the
+        // enrichment on this method's parameters. Rather, there is an implicit
+        // GSEA assumption that Preranked is called with input file name parameters
+        // and produces an output report. GSEA is deeply entwined with these
+        // assumptions. Bits and pieces in the methods below are borrowed from
+        // different places in the GSEA code to replicate the GSEA file parsing
+        // and analysis execution without file parsing and report production.
+        RankedList rankedList = getRankedList(payload);
+ 
+        return analyseRanked(nperms, dataSetSizeMin, dataSetSizeMax, rankedList);
+    }
+
+    private List<GseaAnalysisResult> analyseRanked(Integer nperms,
+            Integer dataSetSizeMin, Integer dataSetSizeMax, RankedList rankedList)
+            throws FileNotFoundException {
         GeneSet[] geneSets = getGeneSets(rankedList, dataSetSizeMin, dataSetSizeMax);
         EnrichmentResult[] erArray = analyse(rankedList, geneSets, nperms);
         List<EnrichmentResult> ers = Arrays.asList(erArray);
@@ -117,7 +166,7 @@ public class GseaController {
             }
         };
         try {
-            Files.lines(Paths.get(GMT_PATH)).forEach(mapper);
+            getGMT().forEach(mapper);
         } catch (IOException e) {
             throw new GseaException("Cannot read the gene matrix file " + GMT_PATH, e);
         }
@@ -149,7 +198,34 @@ public class GseaController {
         return result;
     }
 
-    private EnrichmentResult[] analyse(RankedList rankedList, GeneSet[] geneSets, Integer npermsOpt) {
+    protected Stream<String> getGMT() throws IOException {
+        // The GMT file at the standard Reactome release location
+        // is preferred.
+        Path path = Paths.get(GMT_PATH);
+        if (Files.exists(path)) {
+            return Files.lines(path);
+        } else {
+            // The GMT resource from the latest build.
+            // Note: this GMT file might not be current.
+            InputStream resource = getClass().getResourceAsStream(GMT_RESOURCE);
+            InputStreamReader reader = new InputStreamReader(resource,
+                        StandardCharsets.UTF_8);
+            return new BufferedReader(reader).lines();
+        }
+    }
+
+    private RankedList getRankedList(String payload)
+            throws UnsupportedEncodingException {
+        // Parse the input.
+        String[] lines = payload.split(System.getProperty("line.separator"));
+        List<List<String>> parsed = Stream.of(lines)
+                .map(line -> Arrays.asList(line.split("\t")))
+                .collect(Collectors.toList());
+        return getRankedList(parsed);
+    }
+
+    private EnrichmentResult[] analyse(
+            RankedList rankedList, GeneSet[] geneSets, Integer npermsOpt) {
         RandomSeedGenerator rst = RandomSeedGenerators.lookup("timestamp");
         // The cohort generator is filled in and used internally by GSEA.
         GeneSetScoringTableReqdParam fGcohGenReqdParam = new GeneSetScoringTableReqdParam();

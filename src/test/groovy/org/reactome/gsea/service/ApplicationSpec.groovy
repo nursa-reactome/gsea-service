@@ -48,7 +48,17 @@ class ApplicationSpec extends Specification {
             def response = analyse(geneSet)
         then:
             validate(geneSet, response, expected)
-     }
+    }
+    
+    def "performs analysis using a text request"() {
+        given:
+            def geneSet = "gTqItVnDEP"
+            def expected = "gTqItVnDEP_no_opt"
+        when:
+            def response = analyse_text_input(geneSet)
+        then:
+            validate(geneSet, response, expected)
+    }
 
     def "applies the min dataset size option"() {
         given:
@@ -58,47 +68,57 @@ class ApplicationSpec extends Specification {
             def response = analyse(geneSet, [dataSetSizeMin: 40])
         then:
             validate(geneSet, response, expected)
-     }
-     
-     def analyse(basename, opts=[:]) {
-         // Read the .rnk file.
-         def input = this.getClass().getResource("/fixtures/${basename}.rnk")
-         // Filter for the data lines.
-         def data = input.readLines().findAll { it ==~ REGEX }
-         // The [[name, value], ...] array.
-         def records = data.collect { line ->
-             def match = line =~ REGEX
-             [match[0][1], match[0][2]]
-         }
+    }
+    
+    def analyse(basename, opts=[:]) {
+        // Read the .rnk file.
+        def input = this.getClass().getResource("/fixtures/${basename}.rnk")
+        // Filter for the data lines.
+        def data = input.readLines().findAll { it ==~ REGEX }
+        // The [[name, value], ...] array.
+        def records = data.collect { line ->
+            def match = line =~ REGEX
+            [match[0][1], match[0][2]]
+        }
         // The POST JSON body.
-         def json = groovy.json.JsonOutput.toJson(records)
-         // The REST call base arguments.
-         def args = []
-         // The REST call query parameters.
-         // Perform the GSEA analysis.
-         return client.post(
-             path: "analyse",
-             query: opts,
-             body: json,
-             contentType: "application/json",
-             requestContentType: "application/json"
-         )
-     }
-     
-     def validate(basename, response, fixture) {
-         // The expected input URL.
-         def url = this.getClass().getResource("/fixtures/${fixture}.json")
-         // The expected data as a set of Map objects.
-         def expected = new groovy.json.JsonSlurper().parseText(url.text) as Set
-         // Check the response status code.
-         assert response.status == 200
-         // The analysis result as a set of Map objects.
-         def actual = response.data.collect {
-             [pathway: it.pathway, score: it.score, regulationType: it.regulationType]
-         } as Set
-         // Compare the matching set members.
-         assert actual == expected
-         // Passed.
-         return true
-     }
+        def json = groovy.json.JsonOutput.toJson(records)
+        // Perform the GSEA analysis.
+        return client.post(
+            path: "analyse",
+            query: opts,
+            body: json,
+            contentType: "application/json",
+            requestContentType: "application/json"
+        )
+    }
+    
+    def analyse_text_input(basename, opts=[:]) {
+        // Read the .rnk file into a string.
+        def payload = new File(FIXTURES + "/${basename}.rnk").text
+        // Perform the GSEA analysis.
+        return client.post(
+            path: "analyse",
+            query: opts,
+            body: payload,
+            contentType: "application/json",
+            requestContentType: "text/plain"
+        )
+    }
+    
+    def validate(basename, response, fixture) {
+        // The expected input URL.
+        def url = this.getClass().getResource("/fixtures/${fixture}.json")
+        // The expected data as a set of Map objects.
+        def expected = new groovy.json.JsonSlurper().parseText(url.text) as Set
+        // Check the response status code.
+        assert response.status == 200
+        // The analysis result as a set of Map objects.
+        def actual = response.data.collect {
+            [pathway: it.pathway, score: it.score, regulationType: it.regulationType]
+        } as Set
+        // Compare the matching set members.
+        assert actual == expected
+        // Passed.
+        return true
+    }
 }
