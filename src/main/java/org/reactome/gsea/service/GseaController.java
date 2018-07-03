@@ -1,18 +1,10 @@
 package org.reactome.gsea.service;
 
 import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,7 +12,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -66,11 +57,8 @@ import xtools.api.param.ParamFactory;
 @RestController
 public class GseaController {
 
-    private static final String GMT_RESOURCE = "/resource/ReactomePathways.gmt";
-    // The Reactome gene matrix file location is determined by the
-    // Reactome release process.
-    private static final String GMT_PATH =
-            "/usr/local/reactomes/Reactome/production/GKB/scripts/release/WebELVTool/ReactomePathways.gmt";
+    private static final String GMT_RESOURCE = "ReactomePathways.gmt";
+    private static final String REACTOME_GMT = "ReactomePathways";
 
     /**
      * Runs a GSEA analysis on a preranked list.
@@ -81,15 +69,16 @@ public class GseaController {
      * @throws URISyntaxException
      * @throws IOException
      */
-    @RequestMapping(value="/analyse", method=RequestMethod.POST,
-            consumes = "application/json")
+    @RequestMapping(value="/analyse", 
+                    method=RequestMethod.POST,
+                    consumes = "application/json")
     public @ResponseBody List<GseaAnalysisResult> analyse(
             @RequestParam(value="nperms", required=false) Integer nperms,
             @RequestParam(value="dataSetSizeMin", required=false) Integer dataSetSizeMin,
             @RequestParam(value="dataSetSizeMax", required=false) Integer dataSetSizeMax,
             @RequestBody List<List<String>> payload
     )
-            throws URISyntaxException, IOException {
+            throws Exception {
         // This method and the methods it calls are adapted from the GSEA
         // Preranked internal implementation.
         // There is no clean and simple GSEA public API for performing the
@@ -120,7 +109,7 @@ public class GseaController {
             @RequestParam(value="dataSetSizeMax", required=false) Integer dataSetSizeMax,
             @RequestBody String payload
     )
-            throws URISyntaxException, IOException {
+            throws Exception {
         // This method and the methods it calls are adapted from the GSEA
         // Preranked internal implementation.
         // There is no clean and simple GSEA public API for performing the
@@ -136,8 +125,10 @@ public class GseaController {
     }
 
     private List<GseaAnalysisResult> analyseRanked(Integer nperms,
-            Integer dataSetSizeMin, Integer dataSetSizeMax, RankedList rankedList)
-            throws FileNotFoundException {
+            Integer dataSetSizeMin, 
+            Integer dataSetSizeMax, 
+            RankedList rankedList)
+            throws Exception {
         GeneSet[] geneSets = getGeneSets(rankedList, dataSetSizeMin, dataSetSizeMax);
         EnrichmentResult[] erArray = analyse(rankedList, geneSets, nperms);
         List<EnrichmentResult> ers = Arrays.asList(erArray);
@@ -152,24 +143,8 @@ public class GseaController {
         // The lower: stable id map.
         final Map<String, String> stableIdMap = new HashMap<String, String>(erArray.length);
         ers.stream().forEach(er -> erNames.add(er.getGeneSetName()));
-        Consumer<String> mapper = new Consumer<String>() {
-            @Override
-            public void accept(String line) {
-                String[] fields = line.split("\t");
-                String lc = fields[0];
-                String uc = lc.toUpperCase();
-                if (erNames.contains(uc)) {
-                    utol.put(uc, lc);
-                    String stId = fields[1];
-                    stableIdMap.put(lc, stId);
-                }
-            }
-        };
-        try {
-            getGMT().forEach(mapper);
-        } catch (IOException e) {
-            throw new GseaException("Cannot read the gene matrix file " + GMT_PATH, e);
-        }
+        
+        initPathwayNameMaps(erNames, utol, stableIdMap);
  
         Transformer<EnrichmentResult, GseaAnalysisResult> erXfm =
                 new Transformer<EnrichmentResult, GseaAnalysisResult>() {
@@ -197,35 +172,40 @@ public class GseaController {
  
         return result;
     }
-
-    protected Stream<String> getGMT() throws IOException {
-        // The GMT file at the standard Reactome release location
-        // is preferred.
-        Path path = Paths.get(GMT_PATH);
-        if (Files.exists(path)) {
-            return Files.lines(path);
-        } else {
-            // The GMT resource from the latest build.
-            // Note: this GMT file might not be current.
-            InputStream resource = getClass().getResourceAsStream(GMT_RESOURCE);
-            InputStreamReader reader = new InputStreamReader(resource,
-                        StandardCharsets.UTF_8);
-            return new BufferedReader(reader).lines();
+    
+    private void initPathwayNameMaps(Set<String> erNames,
+            Map<String, String> upCaseToLowCase,
+            Map<String, String> nameToStableId) throws IOException {
+        InputStream resource = getClass().getClassLoader().getResourceAsStream(GMT_RESOURCE);
+        InputStreamReader reader = new InputStreamReader(resource);
+        BufferedReader br = new BufferedReader(reader);
+        String line = null;
+        while ((line = br.readLine()) != null) {
+            String[] fields = line.split("\t");
+            String lc = fields[0];
+            String uc = lc.toUpperCase();
+            if (erNames.contains(uc)) {
+                upCaseToLowCase.put(uc, lc);
+                String stId = fields[1];
+                nameToStableId.put(lc, stId);
+            }
         }
+        br.close();
+        reader.close();
+        resource.close();
     }
 
-    private RankedList getRankedList(String payload)
-            throws UnsupportedEncodingException {
+    private RankedList getRankedList(String payload) {
         // Parse the input.
         String[] lines = payload.split(System.getProperty("line.separator"));
         List<List<String>> parsed = Stream.of(lines)
-                .map(line -> Arrays.asList(line.split("\t")))
-                .collect(Collectors.toList());
+                                           .map(line -> Arrays.asList(line.split("\t")))
+                                           .collect(Collectors.toList());
         return getRankedList(parsed);
     }
 
     private EnrichmentResult[] analyse(
-            RankedList rankedList, GeneSet[] geneSets, Integer npermsOpt) {
+            RankedList rankedList, GeneSet[] geneSets, Integer npermsOpt) throws Exception {
         RandomSeedGenerator rst = RandomSeedGenerators.lookup("timestamp");
         // The cohort generator is filled in and used internally by GSEA.
         GeneSetScoringTableReqdParam fGcohGenReqdParam = new GeneSetScoringTableReqdParam();
@@ -236,9 +216,7 @@ public class GseaController {
         KSTests tests = new KSTests();
         // There are two enrichment phases. The first phase calculates the base score.
         // The second phase calculates the normalized score, FDR and p-values.
-        EnrichmentDb edbPhaseOne;
-        try {
-            edbPhaseOne = tests.executeGsea(
+        EnrichmentDb edbPhaseOne = tests.executeGsea(
                     rankedList,
                     geneSets,
                     nperms, // permutations
@@ -246,21 +224,18 @@ public class GseaController {
                     null, // unused chip argument
                     gcohgen
             );
-        } catch (Exception e) {
-            throw new GseaException("GSEA enrichment error", e);
-        }
+        
         // The GSEA normalization mode parameter.
         NormModeReqdParam modeParam = new NormModeReqdParam();
         String modeDef = (String) modeParam.getDefault();
         // Phase two.
-        final PValueCalculator pvc = new PValueCalculatorImpls.GseaImpl(modeDef);
-        final EnrichmentResult[] results = pvc.calcNPValuesAndFDR(edbPhaseOne.getResults());
+        PValueCalculator pvc = new PValueCalculatorImpls.GseaImpl(modeDef);
+        EnrichmentResult[] results = pvc.calcNPValuesAndFDR(edbPhaseOne.getResults());
 
         return results;
     }
 
-    private RankedList getRankedList(List<List<String>> payload)
-            throws UnsupportedEncodingException {
+    private RankedList getRankedList(List<List<String>> payload) {
         // The current names/values index.
         int current = 0;
         // Name set to check duplicates.
@@ -291,18 +266,15 @@ public class GseaController {
                 "REST", names, values, SortMode.REAL, Order.DESCENDING);
     }
 
-    private GeneSet[] getGeneSets(RankedList rankedList, Integer dataSetSizeMinOpt, Integer dataSetSizeMaxOpt)
-            throws FileNotFoundException {
+    private GeneSet[] getGeneSets(RankedList rankedList,
+                                  Integer dataSetSizeMinOpt,
+                                  Integer dataSetSizeMaxOpt) throws Exception {
         GmtParser gmtParser = new GmtParser();
-        FileInputStream gmtis = new FileInputStream(GMT_PATH);
+//        InputStream gmtis = new FileInputStream(GMT_PATH);
+        InputStream gmtis = getClass().getClassLoader().getResourceAsStream(GMT_RESOURCE);
         // The GSEA .gmt file parser returns a singleton array
         // consisting of the geneset matrix.
-        List<GeneSetMatrix> gsms;
-        try {
-            gsms = (List<GeneSetMatrix>)gmtParser.parse(GMT_PATH, gmtis);
-        } catch (Exception e) {
-            throw new GseaException("GSEA gene lists parsing error", e);
-        }
+        List<GeneSetMatrix> gsms = (List<GeneSetMatrix>)gmtParser.parse(REACTOME_GMT, gmtis);
         GeneSetMatrix gsm = gsms.get(0);
         // The parsed gene sets.
         GeneSet[] gsmGeneSets = gsm.getGeneSets();
@@ -311,12 +283,7 @@ public class GseaController {
         IntegerParam fGeneSetMinSizeParam = ParamFactory.createGeneSetMinSizeParam(dataSetSizeMin, false);
         IntegerParam fGeneSetMaxSizeParam = ParamFactory.createGeneSetMaxSizeParam(dataSetSizeMax, false);
         // GSEA routine to filter the gene sets based on the min/max parameters.
-        GeneSet[] geneSets;
-        try {
-            geneSets = Helper.getGeneSets(rankedList, gsmGeneSets, fGeneSetMinSizeParam , fGeneSetMaxSizeParam);
-        } catch (Exception e) {
-            throw new GseaException("GSEA enrichment error", e);
-        }
+        GeneSet[] geneSets = Helper.getGeneSets(rankedList, gsmGeneSets, fGeneSetMinSizeParam , fGeneSetMaxSizeParam);
 
         return geneSets;
     }
