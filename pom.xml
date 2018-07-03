@@ -11,6 +11,7 @@
 
     <description>GSEA REST Service</description>
     <url>https://github.com/nursa-reactome/gsea</url>
+
     <organization>
         <name>Oregon Health and Science University</name>
         <url>http://www.ohsu.edu/</url>
@@ -315,8 +316,8 @@
         </pluginManagement>
     </build>
 
-    <!--This configuration is needed so that javadoc is included in maven 
-        site -->
+    <!--This configuration is needed so that javadoc is included in the
+        Maven site -->
     <reporting>
         <plugins>
             <plugin>
@@ -370,18 +371,6 @@
                 <enabled>false</enabled>
             </snapshots>
         </repository>
-        <!-- EBI SNAPSHOT repo -->
-        <repository>
-            <id>nexus-ebi-snapshot-repo</id>
-            <name>The EBI internal snapshot repository</name>
-            <url>http://www.ebi.ac.uk/Tools/maven/repos/content/groups/ebi-snapshots/</url>
-            <releases>
-                <enabled>false</enabled>
-            </releases>
-            <snapshots>
-                <enabled>true</enabled>
-            </snapshots>
-        </repository>
     </repositories>
 
     <pluginRepositories>
@@ -402,19 +391,4 @@
         </pluginRepository>
     </pluginRepositories>
 
-    <distributionManagement>
-        <!-- EBI repo -->
-        <repository>
-            <id>pst-release</id>
-            <name>EBI Nexus Repository</name>
-            <url>http://www.ebi.ac.uk/Tools/maven/repos/content/repositories/pst-release</url>
-        </repository>
-        <!-- EBI SNAPSHOT repo -->
-        <snapshotRepository>
-            <uniqueVersion>false</uniqueVersion>
-            <id>pst-snapshots</id>
-            <name>EBI Nexus Snapshots Repository</name>
-            <url>http://www.ebi.ac.uk/Tools/maven/repos/content/repositories/pst-snapshots</url>
-        </snapshotRepository>
-    </distributionManagement>
 </project>
