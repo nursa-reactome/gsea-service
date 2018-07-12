@@ -236,30 +236,17 @@ public class GseaController {
     }
 
     private RankedList getRankedList(List<List<String>> payload) {
-        // The current names/values index.
-        int current = 0;
-        // Name set to check duplicates.
-        Set<String> nameSet = new HashSet<String>(payload.size());
-        String[] names = new String[payload.size()];
-        float[] values = new float[payload.size()];
-        for (List<String> entry: payload) {
-            String name = entry.get(0);
-            if (!nameSet.contains(name)) {
-                names[current] = name;
-                String valueStr = entry.get(1);
-                values[current] = Float.parseFloat(valueStr);
-                nameSet.add(name);
-                current++;
-            }
-        }
-        // Resize the arrays if necessary to account for duplicate removal.
-        if (current < payload.size()) {
-            String[] namesUnique = new String[current];
-            System.arraycopy(names, 0, namesUnique, 0, current);
-            names = namesUnique;
-            float[] valuesUnique = new float[current];
-            System.arraycopy(values, 0, valuesUnique, 0, current);
-            values = valuesUnique;
+        Map<String, Float> nameToValue = new HashMap<>();
+        payload.stream().forEach(pair -> {
+            nameToValue.compute(pair.get(0), (key, value) -> {
+                return new Float(pair.get(1));
+            });
+        });
+        String[] names =
+                nameToValue.keySet().toArray(new String[nameToValue.size()]);
+        float[] values = new float[nameToValue.size()];
+        for (int i=0; i < names.length; i++) {
+            values[i] = nameToValue.get(names[i]);
         }
         
         return RankedListGenerators.createBySorting(
