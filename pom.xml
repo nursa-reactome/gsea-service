@@ -25,9 +25,9 @@
             <organization>http://www.ohsu.edu/</organization>
         </developer>
         <developer>
-            <id>guw</id>
+            <id>wug</id>
             <name>Guanming Wu</name>
-            <email>guw@ohsu.edu</email>
+            <email>wug@ohsu.edu</email>
             <organization>http://www.ohsu.edu/</organization>
         </developer>
     </developers>
@@ -219,7 +219,7 @@
     </dependencies>
 
     <build>
-        <finalName>Gsea</finalName>
+        <finalName>gsea-service</finalName>
         <testSourceDirectory>${project.basedir}/src/test/groovy</testSourceDirectory>
         <resources>
             <resource>
