@@ -5,6 +5,5 @@
     {"pathway": {"name": "Interferon Signaling", "stId": "R-HSA-913531"}, "score": 0.8661911, "regulationType": "UP"},
     {"pathway": {"name": "Interferon alpha/beta signaling", "stId": "R-HSA-909733"}, "score": 0.87766594, "regulationType": "UP"},
     {"pathway": {"name": "Metabolism", "stId": "R-HSA-1430728"}, "score": 0.15260126, "regulationType": "UP"},
-    {"pathway": {"name": "Metabolism of proteins", "stId": "R-HSA-392499"}, "score": 0.17618865, "regulationType": "UP"},
     {"pathway": {"name": "Signal Transduction", "stId": "R-HSA-162582"}, "score": 0.2226403, "regulationType": "UP"}
 ]
