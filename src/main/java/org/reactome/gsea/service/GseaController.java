@@ -101,8 +101,9 @@ public class GseaController {
      * @throws URISyntaxException
      * @throws IOException
      */
-    @RequestMapping(value="/analyse", method=RequestMethod.POST,
-            consumes = "text/plain")
+    @RequestMapping(value="/analyse",
+                    method=RequestMethod.POST,
+                    consumes = "text/plain")
     public @ResponseBody List<GseaAnalysisResult> analyseText(
             @RequestParam(value="nperms", required=false) Integer nperms,
             @RequestParam(value="dataSetSizeMin", required=false) Integer dataSetSizeMin,

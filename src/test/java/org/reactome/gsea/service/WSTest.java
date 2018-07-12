@@ -20,8 +20,6 @@ import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import springfox.documentation.spring.web.json.Json;
-
 public class WSTest {
     protected final String HOST_URL = "http://localhost:8282/";
     protected final String HTTP_POST = "Post";
@@ -47,10 +45,22 @@ public class WSTest {
         resource.close();
         System.out.println();
         
-        ObjectMapper mapper = new ObjectMapper();
-        String query = mapper.writeValueAsString(lines);
+//        ObjectMapper mapper = new ObjectMapper();
+//        String query = mapper.writeValueAsString(lines);
+        
+        String query = convertListToString(lines);
+        
         String results = callHttp(url, HTTP_POST, query);
         System.out.println("Analysis results:\n" + results);
+    }
+    
+    private String convertListToString(List<List<String>> lines) {
+        StringBuilder builder = new StringBuilder();
+        lines.forEach(line -> {
+            line.forEach(token -> builder.append(token).append("\t"));
+            builder.append("\n");
+        });
+        return builder.toString();
     }
     
     protected String callHttp(String url,
@@ -96,8 +106,8 @@ public class WSTest {
     }
     
     private HttpClient initializeHTTPClient(PostMethod post, String query) throws UnsupportedEncodingException {
-//        RequestEntity entity = new StringRequestEntity(query, "text/plain", "UTF-8");
-        RequestEntity entity = new StringRequestEntity(query, "application/json", "UTF-8");
+        RequestEntity entity = new StringRequestEntity(query, "text/plain", "UTF-8");
+//        RequestEntity entity = new StringRequestEntity(query, "application/json", "UTF-8");
         post.setRequestEntity(entity);
 //        post.setRequestHeader("Accept", "application/JSON, application/XML, text/plain");
               post.setRequestHeader("Accept", "application/json");
