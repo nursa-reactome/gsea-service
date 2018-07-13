@@ -45,13 +45,16 @@ public class WSTest {
         resource.close();
         System.out.println();
         
-//        ObjectMapper mapper = new ObjectMapper();
-//        String query = mapper.writeValueAsString(lines);
-        
         String query = convertListToString(lines);
         
-        String results = callHttp(url, HTTP_POST, query);
-        System.out.println("Analysis results:\n" + results);
+        String results = callHttp(url, HTTP_POST, "text/plain", query);
+        System.out.println("Analysis results via query in text/plain:\n" + results);
+        
+        ObjectMapper mapper = new ObjectMapper();
+        query = mapper.writeValueAsString(lines);
+        results = callHttp(url, HTTP_POST, "application/json", query);
+        System.out.println("\nAnalysis results via query in application/json:\n" + results);
+
     }
     
     private String convertListToString(List<List<String>> lines) {
@@ -65,12 +68,13 @@ public class WSTest {
     
     protected String callHttp(String url,
             String type,
+            String requestType,
             String query) throws IOException {
         HttpMethod method = null;
         HttpClient client = null;
         if (type.equals(HTTP_POST)) {
             method = new PostMethod(url);
-            client = initializeHTTPClient((PostMethod) method, query);
+            client = initializeHTTPClient((PostMethod) method, requestType, query);
         } else {
             method = new GetMethod(url); // Default
             client = new HttpClient();
@@ -105,8 +109,10 @@ public class WSTest {
         return rtn.substring(0, rtn.length() - 1);
     }
     
-    private HttpClient initializeHTTPClient(PostMethod post, String query) throws UnsupportedEncodingException {
-        RequestEntity entity = new StringRequestEntity(query, "text/plain", "UTF-8");
+    private HttpClient initializeHTTPClient(PostMethod post, 
+                                            String requestType,
+                                            String query) throws UnsupportedEncodingException {
+        RequestEntity entity = new StringRequestEntity(query, requestType, "UTF-8");
 //        RequestEntity entity = new StringRequestEntity(query, "application/json", "UTF-8");
         post.setRequestEntity(entity);
 //        post.setRequestHeader("Accept", "application/JSON, application/XML, text/plain");

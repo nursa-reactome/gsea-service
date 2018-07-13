@@ -104,7 +104,7 @@ public class GseaController {
     @RequestMapping(value="/analyse",
                     method=RequestMethod.POST,
                     consumes = "text/plain")
-    public @ResponseBody List<GseaAnalysisResult> analyseText(
+    public @ResponseBody List<GseaAnalysisResult> analyse(
             @RequestParam(value="nperms", required=false) Integer nperms,
             @RequestParam(value="dataSetSizeMin", required=false) Integer dataSetSizeMin,
             @RequestParam(value="dataSetSizeMax", required=false) Integer dataSetSizeMax,
