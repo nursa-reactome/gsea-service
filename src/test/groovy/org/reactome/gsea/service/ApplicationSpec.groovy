@@ -15,9 +15,14 @@ import groovy.json.JsonSlurper
  * 
  * The GSEA analysis test.
  * 
+ * Note: this test spec is disabled by default. The pom.xml gmavenplus-plugin
+ * goals were commented out by Guanming since they resulted in some error
+ * in his enviroment. In order to run the tests, restore the pom.xml goals
+ * but don't check in that change to the pom.xml file. 
+ * 
  * Note: the pre-condition for this test is that a test gsea-server
  * is listening on port 8282.
- * Consequently, the gsea-server module must be built in Maven with
+ * Consequently, the gsea-server package must be built in Maven with
  * the skipTests flag set.
  */
 // Note: the thick tangle of "convenience" Java Spring Boot testing
@@ -109,16 +114,23 @@ class ApplicationSpec extends Specification {
         // The expected input URL.
         def url = this.getClass().getResource("/fixtures/${fixture}.json")
         // The expected data as a set of Map objects.
-        def expected = new groovy.json.JsonSlurper().parseText(url.text) as Set
+        def expected = new groovy.json.JsonSlurper().parseText(url.text).collect {
+            [pathway: it.pathway, regulationType: it.regulationType]
+        } as Set
+                    
         // Check the response status code.
         assert response.status == 200
         // The analysis result as a set of Map objects.
         def actual = response.data.collect {
-            [pathway: it.pathway, score: it.score, regulationType: it.regulationType]
+            [pathway: it.pathway, regulationType: it.regulationType]
         } as Set
-        // Compare the matching set members.
-        assert actual == expected
-        // Passed.
+        // Compare the matching set members. There might be new pathways
+        // added over time and the scores might change, but the
+        // regulation type should be the same. Therefore, validate only
+        // that the expected pathways are in the actual result and
+        // conserve the regulation type.
+        assert actual.containsAll(expected)
+        // Assertion passed.
         return true
     }
 }
