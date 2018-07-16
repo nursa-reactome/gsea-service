@@ -20,6 +20,11 @@ import org.apache.commons.collections4.Transformer;
 import org.apache.commons.collections4.iterators.TransformIterator;
 import org.reactome.gsea.config.PreRanked;
 import org.reactome.gsea.model.GseaAnalysisResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.core.env.Environment;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -54,11 +59,29 @@ import xtools.api.param.ParamFactory;
  */
 // GSEA does not parameterize types, so we compensate with unchecked casts.
 @SuppressWarnings("unchecked")
+@PropertySource("classpath:application.properties")
 @RestController
 public class GseaController {
-
-    private static final String GMT_RESOURCE = "ReactomePathways.gmt";
+    private static final Logger logger = LoggerFactory.getLogger(GseaController.class);
     private static final String REACTOME_GMT = "ReactomePathways";
+    
+    @Autowired
+    private Environment env;
+    
+    // Configuration
+    private String gmtResource;
+    // Cached loaded GeneSet[] to save some time 
+    private GeneSet[] geneSets;
+    
+    public String getGmtResource() {
+        if (gmtResource != null)
+            return gmtResource;
+        gmtResource = env.getProperty("gmtResource");
+        if (gmtResource == null)
+            throw new IllegalStateException("gmtResource has not been set!");
+        logger.info("Set gmtResource as: " + gmtResource);
+        return gmtResource;
+    }
 
     /**
      * Runs a GSEA analysis on a preranked list.
@@ -76,9 +99,7 @@ public class GseaController {
             @RequestParam(value="nperms", required=false) Integer nperms,
             @RequestParam(value="dataSetSizeMin", required=false) Integer dataSetSizeMin,
             @RequestParam(value="dataSetSizeMax", required=false) Integer dataSetSizeMax,
-            @RequestBody List<List<String>> payload
-    )
-            throws Exception {
+            @RequestBody List<List<String>> payload) throws Exception {
         // This method and the methods it calls are adapted from the GSEA
         // Preranked internal implementation.
         // There is no clean and simple GSEA public API for performing the
@@ -108,18 +129,7 @@ public class GseaController {
             @RequestParam(value="nperms", required=false) Integer nperms,
             @RequestParam(value="dataSetSizeMin", required=false) Integer dataSetSizeMin,
             @RequestParam(value="dataSetSizeMax", required=false) Integer dataSetSizeMax,
-            @RequestBody String payload
-    )
-            throws Exception {
-        // This method and the methods it calls are adapted from the GSEA
-        // Preranked internal implementation.
-        // There is no clean and simple GSEA public API for performing the
-        // enrichment on this method's parameters. Rather, there is an implicit
-        // GSEA assumption that Preranked is called with input file name parameters
-        // and produces an output report. GSEA is deeply entwined with these
-        // assumptions. Bits and pieces in the methods below are borrowed from
-        // different places in the GSEA code to replicate the GSEA file parsing
-        // and analysis execution without file parsing and report production.
+            @RequestBody String payload) throws Exception {
         RankedList rankedList = getRankedList(payload);
  
         return analyseRanked(nperms, dataSetSizeMin, dataSetSizeMax, rankedList);
@@ -175,9 +185,9 @@ public class GseaController {
     }
     
     private void initPathwayNameMaps(Set<String> erNames,
-            Map<String, String> upCaseToLowCase,
-            Map<String, String> nameToStableId) throws IOException {
-        InputStream resource = getClass().getClassLoader().getResourceAsStream(GMT_RESOURCE);
+                                     Map<String, String> upCaseToLowCase,
+                                     Map<String, String> nameToStableId) throws IOException {
+        InputStream resource = getClass().getClassLoader().getResourceAsStream(getGmtResource());
         InputStreamReader reader = new InputStreamReader(resource);
         BufferedReader br = new BufferedReader(reader);
         String line = null;
@@ -205,8 +215,9 @@ public class GseaController {
         return getRankedList(parsed);
     }
 
-    private EnrichmentResult[] analyse(
-            RankedList rankedList, GeneSet[] geneSets, Integer npermsOpt) throws Exception {
+    private EnrichmentResult[] analyse(RankedList rankedList, 
+                                       GeneSet[] geneSets,
+                                       Integer npermsOpt) throws Exception {
         RandomSeedGenerator rst = RandomSeedGenerators.lookup("timestamp");
         // The cohort generator is filled in and used internally by GSEA.
         GeneSetScoringTableReqdParam fGcohGenReqdParam = new GeneSetScoringTableReqdParam();
@@ -257,15 +268,7 @@ public class GseaController {
     private GeneSet[] getGeneSets(RankedList rankedList,
                                   Integer dataSetSizeMinOpt,
                                   Integer dataSetSizeMaxOpt) throws Exception {
-        GmtParser gmtParser = new GmtParser();
-//        InputStream gmtis = new FileInputStream(GMT_PATH);
-        InputStream gmtis = getClass().getClassLoader().getResourceAsStream(GMT_RESOURCE);
-        // The GSEA .gmt file parser returns a singleton array
-        // consisting of the geneset matrix.
-        List<GeneSetMatrix> gsms = (List<GeneSetMatrix>)gmtParser.parse(REACTOME_GMT, gmtis);
-        GeneSetMatrix gsm = gsms.get(0);
-        // The parsed gene sets.
-        GeneSet[] gsmGeneSets = gsm.getGeneSets();
+        GeneSet[] gsmGeneSets = getGeneSets();
         int dataSetSizeMin = dataSetSizeMinOpt == null ? PreRanked.DEF_MIN_DATASET_SIZE : dataSetSizeMinOpt.intValue();
         int dataSetSizeMax = dataSetSizeMaxOpt == null ? PreRanked.DEF_MAX_DATASET_SIZE : dataSetSizeMaxOpt.intValue();
         IntegerParam fGeneSetMinSizeParam = ParamFactory.createGeneSetMinSizeParam(dataSetSizeMin, false);
@@ -274,5 +277,21 @@ public class GseaController {
         GeneSet[] geneSets = Helper.getGeneSets(rankedList, gsmGeneSets, fGeneSetMinSizeParam , fGeneSetMaxSizeParam);
 
         return geneSets;
+    }
+
+    protected GeneSet[] getGeneSets() throws Exception {
+        if (geneSets != null)
+            return geneSets;
+        GmtParser gmtParser = new GmtParser();
+//        InputStream gmtis = new FileInputStream(GMT_PATH);
+        InputStream gmtis = getClass().getClassLoader().getResourceAsStream(getGmtResource());
+        // The GSEA .gmt file parser returns a singleton array
+        // consisting of the geneset matrix.
+        List<GeneSetMatrix> gsms = (List<GeneSetMatrix>) gmtParser.parse(REACTOME_GMT, gmtis);
+        GeneSetMatrix gsm = gsms.get(0);
+        // The parsed gene sets.
+        GeneSet[] gsmGeneSets = gsm.getGeneSets();
+        this.geneSets = gsmGeneSets;
+        return gsmGeneSets;
     }
 }
