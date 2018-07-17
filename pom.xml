@@ -34,6 +34,9 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <tomcat.version>7.0.90</tomcat.version>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
 
         <reactome.gsea.model>1.0.1</reactome.gsea.model>
         <commons.collections.version>4.1</commons.collections.version>
@@ -48,6 +51,8 @@
 
         <!--  The default dev mode port. -->
         <server.port>8282</server.port>
+        
+        <gmtResource>ReactomePathways.gmt</gmtResource>
 
         <skip.integration.tests>true</skip.integration.tests>
     </properties>
@@ -67,11 +72,11 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>RELEASE</version>
+        <version>1.5.14.RELEASE</version>
     </parent>
 
     <dependencies>
-    	<dependency>
+        <dependency>
 			<groupId>commons-httpclient</groupId>
 			<artifactId>commons-httpclient</artifactId>
 			<version>3.1</version>
@@ -83,26 +88,30 @@
             <artifactId>gsea-model</artifactId>
             <version>${reactome.gsea.model}</version>
         </dependency>
+        
         <!--Spring -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
             <exclusions>
-                <exclusion>
-                    <groupId>org.springframework.boot</groupId>
-                    <artifactId>spring-boot-starter-logging</artifactId>
-                </exclusion>
-            </exclusions>
+                  <exclusion>
+                      <groupId>org.springframework.boot</groupId>
+                      <artifactId>spring-boot-starter-logging</artifactId>
+                  </exclusion>
+              </exclusions>
          </dependency>
          <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-tomcat</artifactId>
-            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-devtools</artifactId>
             <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
@@ -127,14 +136,16 @@
             <artifactId>slf4j-api</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-log4j12</artifactId>
-        </dependency>
-        <dependency>
             <groupId>log4j</groupId>
             <artifactId>log4j</artifactId>
             <version>1.2.14</version>
         </dependency>        
+        <!-- juli for tomcat 7-->
+        <dependency>
+            <groupId>org.apache.tomcat</groupId>
+            <artifactId>tomcat-juli</artifactId>
+            <version>${tomcat.version}</version>
+        </dependency>
         
         <!--Jsp Servlets -->
         <dependency>
@@ -151,6 +162,10 @@
         <dependency>
             <groupId>javax.servlet</groupId>
             <artifactId>jstl</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-jasper</artifactId>
         </dependency>
         <!-- Jackson JSON Processor -->
         <dependency>
@@ -177,13 +192,16 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>fluent-hc</artifactId>
-            <version>4.5.3</version>
         </dependency>
         <!-- Testing -->
         <dependency>
             <groupId>org.spockframework</groupId>
             <artifactId>spock-core</artifactId>
-            <version>1.1-groovy-2.4</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.spockframework</groupId>
+            <artifactId>spock-spring</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -242,14 +260,22 @@
             <plugin>
                 <!-- The gmavenplus plugin is used to compile Groovy code. 
                     To learn more about this plugin, visit https://github.com/groovy/GMavenPlus/wiki -->
-                <groupId>org.codehaus.gmavenplus</groupId>
-                <artifactId>gmavenplus-plugin</artifactId>
+                <groupId>org.codehaus.gmaven</groupId>
+                <artifactId>gmaven-plugin</artifactId>
                 <version>1.5</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.codehaus.groovy</groupId>
+                        <artifactId>groovy-all</artifactId>
+                        <scope>compile</scope>
+                        <version>2.4.5</version>
+                    </dependency>
+                </dependencies>
                 <executions>
                     <execution>
                         <goals>
-<!--                             <goal>addTestSources</goal> -->
-<!--                             <goal>testCompile</goal> -->
+                            <goal>compile</goal>
+                            <goal>testCompile</goal>
                         </goals>
                     </execution>
                 </executions>

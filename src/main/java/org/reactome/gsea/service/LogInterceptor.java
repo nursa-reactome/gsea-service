@@ -20,13 +20,6 @@ public class LogInterceptor implements HandlerInterceptor {
     Logger log = LoggerFactory.getLogger(this.getClass());
  
     @Override
-    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object object, ModelAndView model)
-            throws Exception {
-        String path = request.getServletPath().substring(1);
-        log.info("Request \"" + path + "\" completed with status " + response.getStatus() + ".");
-    }
- 
-    @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object object) throws Exception {
         String params = request.getParameterMap().entrySet().stream()
                                  .map(LogInterceptor::formatParameter)
@@ -36,6 +29,23 @@ public class LogInterceptor implements HandlerInterceptor {
         return true;
     }
     
+    @Override
+    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object object, ModelAndView model)
+            throws Exception {
+        String path = request.getServletPath().substring(1);
+        log.info("Request \"" + path + "\" completed with status " + response.getStatus() + ".");
+    }
+
+    @Override
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response,
+            Object object, Exception e) throws Exception {
+        if (e != null) {
+            e.printStackTrace();
+            String path = request.getServletPath().substring(1);
+            log.error("Error processing \"" + path + "\": " + e);
+        }
+    }
+   
     private static String formatParameter(Entry<String, String[]> entry) {
         String[] value = entry.getValue();
         String valsStr = Arrays.asList(value).stream()

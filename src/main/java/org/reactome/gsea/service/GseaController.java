@@ -77,6 +77,7 @@ public class GseaController {
         if (gmtResource != null)
             return gmtResource;
         gmtResource = env.getProperty("gmtResource");
+        System.out.println(">>gmt rsc " + gmtResource);
         if (gmtResource == null)
             throw new IllegalStateException("gmtResource has not been set!");
         logger.info("Set gmtResource as: " + gmtResource);
