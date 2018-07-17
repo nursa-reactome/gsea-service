@@ -21,9 +21,10 @@ import org.junit.Test;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class WSTest {
-    protected final String HOST_URL = "http://localhost:8282/";
-    protected final String HTTP_POST = "Post";
-    protected final String HTTP_GET = "Get";
+    protected final String HOST_URL = "http://localhost:8070/";
+//    private final String HOST_URL = "http://reactomews.oicr.on.ca:8080/gsea-service/";
+    private final String HTTP_POST = "Post";
+    private final String HTTP_GET = "Get";
     
     public WSTest() {
     }

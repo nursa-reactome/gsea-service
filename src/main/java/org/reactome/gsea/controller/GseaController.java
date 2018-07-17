@@ -1,4 +1,4 @@
-package org.reactome.gsea.service;
+package org.reactome.gsea.controller;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -18,10 +18,9 @@ import java.util.stream.Stream;
 import org.apache.commons.collections4.IteratorUtils;
 import org.apache.commons.collections4.Transformer;
 import org.apache.commons.collections4.iterators.TransformIterator;
+import org.apache.log4j.Logger;
 import org.reactome.gsea.config.PreRanked;
 import org.reactome.gsea.model.GseaAnalysisResult;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.core.env.Environment;
@@ -62,7 +61,7 @@ import xtools.api.param.ParamFactory;
 @PropertySource("classpath:application.properties")
 @RestController
 public class GseaController {
-    private static final Logger logger = LoggerFactory.getLogger(GseaController.class);
+    private static final Logger logger = Logger.getLogger(GseaController.class);
     private static final String REACTOME_GMT = "ReactomePathways";
     
     @Autowired
@@ -77,7 +76,6 @@ public class GseaController {
         if (gmtResource != null)
             return gmtResource;
         gmtResource = env.getProperty("gmtResource");
-        System.out.println(">>gmt rsc " + gmtResource);
         if (gmtResource == null)
             throw new IllegalStateException("gmtResource has not been set!");
         logger.info("Set gmtResource as: " + gmtResource);
