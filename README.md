@@ -43,4 +43,4 @@ Installation
 7. Alternatively, the REST service can be started locally in an embedded
    server with the Maven `spring-boot:run` goal:
 
-        mvn spring-boot:run
+        mvn tomcat7:run
