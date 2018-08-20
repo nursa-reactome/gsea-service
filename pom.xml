@@ -6,8 +6,8 @@
     <artifactId>gsea-service</artifactId>
 
     <packaging>war</packaging>
-    <version>1.0.1</version>
-    <name>gsea-service</name>
+    <version>1.0.2</version>
+    <name>GseaService</name>
 
     <description>GSEA REST Service</description>
     <url>https://github.com/nursa-reactome/gsea</url>
@@ -126,6 +126,7 @@
     </dependencies>
 
  	<build>
+        <finalName>${project.name}</finalName>
 		<sourceDirectory>src/main/java</sourceDirectory>
 		<plugins>
 			<plugin>
