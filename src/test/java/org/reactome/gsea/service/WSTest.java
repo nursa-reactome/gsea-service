@@ -21,10 +21,9 @@ import org.junit.Test;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class WSTest {
-    protected final String HOST_URL = "http://localhost:8070/";
+    protected final String HOST_URL = "http://localhost:8282/";
 //    private final String HOST_URL = "http://reactomews.oicr.on.ca:8080/gsea-service/";
     private final String HTTP_POST = "Post";
-    private final String HTTP_GET = "Get";
     
     public WSTest() {
     }
@@ -32,6 +31,9 @@ public class WSTest {
     @Test
     public void testAnalysis() throws Exception {
         String url = HOST_URL + "analyse";
+        String species = "species=human";
+        url += "?" + species;
+        System.out.println(url);
         InputStream resource = this.getClass().getResourceAsStream("/fixtures/gTqItVnDEP.rnk");
         InputStreamReader reader = new InputStreamReader(resource);
         BufferedReader br = new BufferedReader(reader);
@@ -45,6 +47,9 @@ public class WSTest {
         reader.close();
         resource.close();
         System.out.println();
+
+        // For checking
+//        lines.add(Arrays.asList("Prps1", "0.34"));
         
         String query = convertListToString(lines);
         

@@ -5,13 +5,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -40,13 +39,12 @@ import edu.mit.broad.genome.math.Order;
 import edu.mit.broad.genome.math.RandomSeedGenerator;
 import edu.mit.broad.genome.math.RandomSeedGenerators;
 import edu.mit.broad.genome.math.SortMode;
+import edu.mit.broad.genome.objects.FSet;
 import edu.mit.broad.genome.objects.GeneSet;
-import edu.mit.broad.genome.objects.GeneSetMatrix;
 import edu.mit.broad.genome.objects.RankedList;
 import edu.mit.broad.genome.objects.esmatrix.db.EnrichmentDb;
 import edu.mit.broad.genome.objects.esmatrix.db.EnrichmentResult;
 import edu.mit.broad.genome.objects.esmatrix.db.EnrichmentScore;
-import edu.mit.broad.genome.parsers.GmtParser;
 import xtools.api.AbstractTool.Helper;
 import xtools.api.param.GeneSetScoringTableReqdParam;
 import xtools.api.param.IntegerParam;
@@ -57,31 +55,24 @@ import xtools.api.param.ParamFactory;
  * @author Fred Loney <loneyf@ohsu.edu>
  */
 // GSEA does not parameterize types, so we compensate with unchecked casts.
-@SuppressWarnings("unchecked")
 @PropertySource("classpath:application.properties")
 @RestController
 public class GseaController {
     private static final Logger logger = Logger.getLogger(GseaController.class);
-    private static final String REACTOME_GMT = "ReactomePathways";
-    
     @Autowired
     private Environment env;
-    
-    // Configuration
-    private String gmtResource;
     // Cached loaded GeneSet[] to save some time 
-    private GeneSet[] geneSets;
+    private GeneSet[] humanGeneSets;
+    private GeneSet[] mouseGeneSets;
     
-    public String getGmtResource() {
-        if (gmtResource != null)
-            return gmtResource;
-        gmtResource = env.getProperty("gmtResource");
+    private String getGmtResource(String resourceName) {
+        String gmtResource = env.getProperty(resourceName);
         if (gmtResource == null)
             throw new IllegalStateException("gmtResource has not been set!");
-        logger.info("Set gmtResource as: " + gmtResource);
+        logger.debug("Set gmtResource as: " + gmtResource);
         return gmtResource;
     }
-
+    
     /**
      * Runs a GSEA analysis on a preranked list.
      * 
@@ -95,9 +86,10 @@ public class GseaController {
                     method=RequestMethod.POST,
                     consumes = "application/json")
     public @ResponseBody List<GseaAnalysisResult> analyse(
-            @RequestParam(value="nperms", required=false) Integer nperms,
-            @RequestParam(value="dataSetSizeMin", required=false) Integer dataSetSizeMin,
-            @RequestParam(value="dataSetSizeMax", required=false) Integer dataSetSizeMax,
+            @RequestParam(value="species", required=false, defaultValue = "human") String species,
+            @RequestParam(value="nperms", required=false, defaultValue = "1000") Integer nperms,
+            @RequestParam(value="dataSetSizeMin", required=false, defaultValue = "3") Integer dataSetSizeMin,
+            @RequestParam(value="dataSetSizeMax", required=false, defaultValue = "500") Integer dataSetSizeMax,
             @RequestBody List<List<String>> payload) throws Exception {
         // This method and the methods it calls are adapted from the GSEA
         // Preranked internal implementation.
@@ -109,7 +101,7 @@ public class GseaController {
         // different places in the GSEA code to replicate the GSEA file parsing
         // and analysis execution without file parsing and report production.
         RankedList rankedList = getRankedList(payload);
-        return analyseRanked(nperms, dataSetSizeMin, dataSetSizeMax, rankedList);
+        return analyseRanked(species, nperms, dataSetSizeMin, dataSetSizeMax, rankedList);
     }
 
     /**
@@ -125,47 +117,34 @@ public class GseaController {
                     method=RequestMethod.POST,
                     consumes = "text/plain")
     public @ResponseBody List<GseaAnalysisResult> analyse(
-            @RequestParam(value="nperms", required=false) Integer nperms,
-            @RequestParam(value="dataSetSizeMin", required=false) Integer dataSetSizeMin,
-            @RequestParam(value="dataSetSizeMax", required=false) Integer dataSetSizeMax,
+            @RequestParam(value="species", required=false, defaultValue = "human") String species,
+            @RequestParam(value="nperms", required=false, defaultValue = "1000") Integer nperms,
+            @RequestParam(value="dataSetSizeMin", required=false, defaultValue = "3") Integer dataSetSizeMin,
+            @RequestParam(value="dataSetSizeMax", required=false, defaultValue = "500") Integer dataSetSizeMax,
             @RequestBody String payload) throws Exception {
         RankedList rankedList = getRankedList(payload);
  
-        return analyseRanked(nperms, dataSetSizeMin, dataSetSizeMax, rankedList);
+        return analyseRanked(species, nperms, dataSetSizeMin, dataSetSizeMax, rankedList);
     }
 
-    private List<GseaAnalysisResult> analyseRanked(Integer nperms,
-            Integer dataSetSizeMin, 
-            Integer dataSetSizeMax, 
-            RankedList rankedList)
-            throws Exception {
-        GeneSet[] geneSets = getGeneSets(rankedList, dataSetSizeMin, dataSetSizeMax);
+    private List<GseaAnalysisResult> analyseRanked(String species,
+                                                   Integer nperms,
+                                                   Integer dataSetSizeMin, 
+                                                   Integer dataSetSizeMax, 
+                                                   RankedList rankedList) throws Exception {
+        GeneSet[] geneSets = getGeneSets(species, rankedList, dataSetSizeMin, dataSetSizeMax);
         EnrichmentResult[] erArray = analyse(rankedList, geneSets, nperms);
         List<EnrichmentResult> ers = Arrays.asList(erArray);
-        // Work around the following bug:
-        // * GSEA geneset parser converts the pathway names to upper case.
-        // The work-around is to reread the gmt file into an {upper: lower}
-        // map and replace the parsed GSEA gene set names.
-        Set<String> erNames = new HashSet<String>();
-        ers.stream().forEach(er -> erNames.add(er.getGeneSetName()));
-        // The upper: lower map.
-        final Map<String, String> utol = new HashMap<String, String>(erArray.length);
-        // The lower: stable id map.
-        final Map<String, String> stableIdMap = new HashMap<String, String>(erArray.length);
-        ers.stream().forEach(er -> erNames.add(er.getGeneSetName()));
-        
-        initPathwayNameMaps(erNames, utol, stableIdMap);
- 
+        // Convert into a simple result for json
         Transformer<EnrichmentResult, GseaAnalysisResult> erXfm =
                 new Transformer<EnrichmentResult, GseaAnalysisResult>() {
             @Override
             public GseaAnalysisResult transform(EnrichmentResult er) {
                 GseaAnalysisResult result = new GseaAnalysisResult();
-                String ucName = er.getGeneSetName();
+                GeneSet geneset = er.getGeneSet();
                 GseaAnalysisResult.Pathway pathway = new GseaAnalysisResult.Pathway();
-                String lcName = utol.get(ucName);
-                pathway.setName(lcName);
-                pathway.setStId(stableIdMap.get(lcName));
+                pathway.setName(geneset.getName());
+                pathway.setStId(geneset.getNameEnglish()); // This is stable id (the second column. See parseGeneSet).
                 result.setPathway(pathway);
                 EnrichmentScore es = er.getScore();
                 result.setHitCount(es.getNumHits());
@@ -181,28 +160,6 @@ public class GseaController {
         List<GseaAnalysisResult> result = IteratorUtils.toList(erIter);
  
         return result;
-    }
-    
-    private void initPathwayNameMaps(Set<String> erNames,
-                                     Map<String, String> upCaseToLowCase,
-                                     Map<String, String> nameToStableId) throws IOException {
-        InputStream resource = getClass().getClassLoader().getResourceAsStream(getGmtResource());
-        InputStreamReader reader = new InputStreamReader(resource);
-        BufferedReader br = new BufferedReader(reader);
-        String line = null;
-        while ((line = br.readLine()) != null) {
-            String[] fields = line.split("\t");
-            String lc = fields[0];
-            String uc = lc.toUpperCase();
-            if (erNames.contains(uc)) {
-                upCaseToLowCase.put(uc, lc);
-                String stId = fields[1];
-                nameToStableId.put(lc, stId);
-            }
-        }
-        br.close();
-        reader.close();
-        resource.close();
     }
 
     private RankedList getRankedList(String payload) {
@@ -247,6 +204,7 @@ public class GseaController {
     }
 
     private RankedList getRankedList(List<List<String>> payload) {
+        // Use a map to avoid any duplication in the payload
         Map<String, Float> nameToValue = new HashMap<>();
         payload.stream().forEach(pair -> {
             nameToValue.compute(pair.get(0), (key, value) -> {
@@ -264,10 +222,11 @@ public class GseaController {
                 "REST", names, values, SortMode.REAL, Order.DESCENDING);
     }
 
-    private GeneSet[] getGeneSets(RankedList rankedList,
+    private GeneSet[] getGeneSets(String species,
+                                  RankedList rankedList,
                                   Integer dataSetSizeMinOpt,
                                   Integer dataSetSizeMaxOpt) throws Exception {
-        GeneSet[] gsmGeneSets = getGeneSets();
+        GeneSet[] gsmGeneSets = getGeneSets(species);
         int dataSetSizeMin = dataSetSizeMinOpt == null ? PreRanked.DEF_MIN_DATASET_SIZE : dataSetSizeMinOpt.intValue();
         int dataSetSizeMax = dataSetSizeMaxOpt == null ? PreRanked.DEF_MAX_DATASET_SIZE : dataSetSizeMaxOpt.intValue();
         IntegerParam fGeneSetMinSizeParam = ParamFactory.createGeneSetMinSizeParam(dataSetSizeMin, false);
@@ -278,19 +237,53 @@ public class GseaController {
         return geneSets;
     }
 
-    protected GeneSet[] getGeneSets() throws Exception {
-        if (geneSets != null)
-            return geneSets;
-        GmtParser gmtParser = new GmtParser();
-//        InputStream gmtis = new FileInputStream(GMT_PATH);
-        InputStream gmtis = getClass().getClassLoader().getResourceAsStream(getGmtResource());
-        // The GSEA .gmt file parser returns a singleton array
-        // consisting of the geneset matrix.
-        List<GeneSetMatrix> gsms = (List<GeneSetMatrix>) gmtParser.parse(REACTOME_GMT, gmtis);
-        GeneSetMatrix gsm = gsms.get(0);
-        // The parsed gene sets.
-        GeneSet[] gsmGeneSets = gsm.getGeneSets();
-        this.geneSets = gsmGeneSets;
-        return gsmGeneSets;
+    private GeneSet[] getGeneSets(String species) throws Exception {
+        if (species.equals("mouse"))
+            return getMouseGeneSets();
+        return getHumanGeneSets(); // As the default
     }
+    
+    private GeneSet[] getMouseGeneSets() throws Exception {
+        if (mouseGeneSets != null)
+            return mouseGeneSets;
+        String resource = getGmtResource("mouseGmtResource");
+        mouseGeneSets = parseGmtFile(resource);
+        return mouseGeneSets;
+    }
+    
+    private GeneSet[] getHumanGeneSets() throws Exception {
+        if (humanGeneSets != null)
+            return humanGeneSets;
+        String resource = getGmtResource("gmtResource");
+        humanGeneSets = parseGmtFile(resource);
+        return humanGeneSets;
+    }
+    
+    /**
+     * Modified from GmtParser to have a lean parser without upper case pathway names.
+     * @param resource
+     * @return
+     * @throws IOException
+     */
+    private GeneSet[] parseGmtFile(String resource) throws IOException {
+        logger.debug("Loading gene sets for " + resource);
+        InputStream gmtis = getClass().getClassLoader().getResourceAsStream(resource);
+        BufferedReader br = new BufferedReader(new InputStreamReader(gmtis));
+        String line = null;
+        List<GeneSet> genesets = new ArrayList<>();
+        while ((line = br.readLine()) != null) {
+            String[] tokens = line.split("\t");
+            List<String> geneNames = Arrays.asList(tokens)
+                                           .subList(2, tokens.length);
+            GeneSet gset = new FSet(tokens[0],
+                                    tokens[1],
+                                    geneNames,
+                                    true);
+            genesets.add(gset);
+        }
+        br.close();
+        logger.debug("Total gene sets: " + genesets.size());
+        return genesets.toArray(new GeneSet[] {});
+    }
+    
 }
